@@ -67,14 +67,32 @@ function ExportAsLaTeX() {
 						 fixed(node.x * this._scale, 2) + ',' + fixed(-node.y * this._scale, 2) + ') {' + node.text + '};\n';
 		}
  
+		// // Loop through links to generate LaTeX code for transitions
+		// for (i = 0; i < links.length; i++) {
+		// 	var link = links[i];
+		// 	console.log(links[i])
+		// 	var edgeOptions = link.isLoop ? '[loop above]' : '';
+		// 	latexBody += '\\path[->] (' + link.nodeA.text + ') edge' + edgeOptions +
+		// 				 ' node {' + link.text + '} (' + link.nodeB.text + ');\n';
+		// }
+
 		// Loop through links to generate LaTeX code for transitions
 		for (i = 0; i < links.length; i++) {
 			var link = links[i];
-			console.log(links[i])
-			var edgeOptions = link.isLoop ? '[loop above]' : '';
-			latexBody += '\\path[->] (' + link.nodeA.text + ') edge' + edgeOptions +
-						 ' node {' + link.text + '} (' + link.nodeB.text + ');\n';
+			if (link instanceof SelfLink) {
+				latexBody += '\\path[->] (' + link.node.text + ') edge[loop above] node {' + link.text + '} ();\n';
+			} else {
+				var edgeOptions = '';
+				if (link.perpendicularPart !== 0) {
+					// Determine bending angle based on the perpendicular part
+					var bendAngle = Math.min(Math.abs(link.perpendicularPart * 10), 60); // Adjust the factor to control the bend
+					edgeOptions = 'bend ' + (link.perpendicularPart < 0 ? 'left=' : 'right=') + bendAngle + ' ';
+				}
+				latexBody += '\\path[->] (' + link.nodeA.text + ') edge[' + edgeOptions + '] node {' + link.text + '} (' + link.nodeB.text + ');\n';
+			}
 		}
+	
+	
  
 		return latexBody;
 	};
