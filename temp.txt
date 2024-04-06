@@ -1,24 +1,53 @@
 // draw using this instead of a canvas and call toLaTeX() afterward
 function ExportAsLaTeX() {
-	this._points = [];
-	this._texData = '';
-	this._scale = 0.1; // to convert pixels to document space (TikZ breaks if the numbers get too big, above 500?)
+    this._points = [];
+    this._texData = '';
+    this._scale = 0.1; // to convert pixels to document space
+	
 
-	this.toLaTeX = function() {
-		return '\\documentclass[12pt]{article}\n' +
-			'\\usepackage{tikz}\n' +
-			'\n' +
-			'\\begin{document}\n' +
-			'\n' +
-			'\\begin{center}\n' +
-			'\\begin{tikzpicture}[scale=0.2]\n' +
-			'\\tikzstyle{every node}+=[inner sep=0pt]\n' +
-			this._texData +
-			'\\end{tikzpicture}\n' +
-			'\\end{center}\n' +
-			'\n' +
-			'\\end{document}\n';
-	};
+    this.toLaTeX = function() {
+        // LaTeX Header with TikZ libraries
+        var header = '\\documentclass[12pt]{article}\n' +
+                     '\\usepackage{tikz}\n' +
+                     '\\usetikzlibrary{automata, positioning}\n' +
+                     '\\begin{document}\n' +
+                     '\\begin{center}\n' +
+                     '\\begin{tikzpicture}[scale=0.2, every node/.style={scale=0.2}, node distance=2cm, on grid, auto]\n';
+
+        // Generating LaTeX body for nodes and links
+        var body = this.generateLaTeXBody();
+
+        var footer = '\\end{tikzpicture}\n' +
+                     '\\end{center}\n' +
+                     '\\end{document}\n';
+
+        return header + body + footer;
+    };
+
+    this.generateLaTeXBody = function() {
+        var latexBody = '';
+        var i;
+
+        // Generate LaTeX for nodes
+        for (i = 0; i < nodes.length; i++) {
+            var node = nodes[i];
+            var options = [];
+            if (node.isAcceptState) options.push('accepting');
+            if (node.isInitial) options.push('initial');
+            var optionsStr = options.length ? '[' + options.join(',') + ']' : '';
+            latexBody += '\\node[state' + optionsStr + '] (' + node.name + ') {' + node.text + '};\n';
+        }
+
+        // Generate LaTeX for links
+        for (i = 0; i < links.length; i++) {
+            var link = links[i];
+            var edgeOptions = link.isLoop ? '[loop above]' : '';
+            latexBody += '\\path[->] (' + link.nodeA.name + ') edge' + edgeOptions + ' node {' + link.text + '} (' + link.nodeB.name + ');\n';
+        }
+
+        return latexBody;
+    };
+
 
 	this.beginPath = function() {
 		this._points = [];

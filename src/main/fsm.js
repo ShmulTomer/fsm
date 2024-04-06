@@ -389,6 +389,7 @@ function saveAsSVG() {
 }
 
 function saveAsLaTeX() {
+	console.log("HERE S")
 	var exporter = new ExportAsLaTeX();
 	var oldSelectedObject = selectedObject;
 	selectedObject = null;

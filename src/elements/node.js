@@ -1,10 +1,13 @@
 function Node(x, y) {
 	this.x = x;
 	this.y = y;
+	console.log("HERE Node")
 	this.mouseOffsetX = 0;
 	this.mouseOffsetY = 0;
 	this.isAcceptState = false;
 	this.text = '';
+
+	// Additional properties for LaTeX export
 }
 
 Node.prototype.setMouseStart = function(x, y) {
