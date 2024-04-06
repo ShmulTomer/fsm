@@ -85,7 +85,7 @@ function ExportAsLaTeX() {
 				var edgeOptions = '';
 				if (link.perpendicularPart !== 0) {
 					// Determine bending angle based on the perpendicular part
-					var bendAngle = Math.min(Math.abs(link.perpendicularPart * 10), 60); // Adjust the factor to control the bend
+					var bendAngle = Math.abs(link.perpendicularPart * 10); // Adjust the factor to control the bend
 					edgeOptions = 'bend ' + (link.perpendicularPart < 0 ? 'left=' : 'right=') + bendAngle + ' ';
 				}
 				latexBody += '\\path[->] (' + link.nodeA.text + ') edge[' + edgeOptions + '] node {' + link.text + '} (' + link.nodeB.text + ');\n';
