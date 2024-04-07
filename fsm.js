@@ -62,7 +62,7 @@ function ExportAsLaTeX() {
 			var stateOptions = [];
 			if (node.isInitial) stateOptions.push('initial');
 			if (node.isAcceptState) stateOptions.push('accepting');
-			var stateOptionsStr = stateOptions.length > 0 ? '[' + stateOptions.join(',') + ']' : '';
+			var stateOptionsStr = stateOptions.length > 0 ? ',' + stateOptions.join(',') + '' : '';
 			latexBody += '\\node[state' + stateOptionsStr + '] (' + node.text + ') at (' + 
 						 fixed(node.x * this._scale, 2) + ',' + fixed(-node.y * this._scale, 2) + ') {' + node.text + '};\n';
 		}
@@ -85,26 +85,41 @@ function ExportAsLaTeX() {
 		// 		latexBody += '\\path[->] (' + link.nodeA.text + ') edge[' + edgeOptions + '] node {' + link.text + '} (' + link.nodeB.text + ');\n';
 		// 	}
 		// }
+		const pi = 3.141592653;
 
 		for (i = 0; i < links.length; i++) {
 			var link = links[i];
 			if (link instanceof SelfLink) {
 				console.log(links[i])
-				latexBody += '\\path[->] (' + link.node.text + ') edge[loop above] node {' + link.text + '} ();\n';
+				var loop = "left";
+				if (link.anchorAngle > pi / 4 && link.anchorAngle < pi * 3 / 4) {
+					loop = "below";
+				} else if (link.anchorAngle > -3 * pi / 4 && link.anchorAngle < -pi / 4) {
+					loop = "above";
+				} else if (link.anchorAngle > -pi / 4 && link.anchorAngle < pi / 4) {
+					loop = "right";
+				}
+				latexBody += '\\path[->] (' + link.node.text + ') edge[loop ' + loop + '] node {' + link.text + '} ();\n';
 			} else if (link.perpendicularPart === 0) {
 				// Straight link
 				latexBody += '\\path[->] (' + link.nodeA.text + ') edge node {' + link.text + '} (' + link.nodeB.text + ');\n';
 			} else {
 				// Curved link
-				var anchor = link.getAnchorPoint();
-				var circle = circleFromThreePoints(link.nodeA.x, link.nodeA.y, link.nodeB.x, link.nodeB.y, anchor.x, anchor.y);
-				var startAngle = Math.atan2(link.nodeA.y - circle.y, link.nodeA.x - circle.x);
-				var endAngle = Math.atan2(link.nodeB.y - circle.y, link.nodeB.x - circle.x);
-				var angleDelta = endAngle - startAngle;
-				if (angleDelta <= -Math.PI) angleDelta += 2 * Math.PI;
-				if (angleDelta > Math.PI) angleDelta -= 2 * Math.PI;
-				var direction = (angleDelta > 0) ? "bend left" : "bend right";
-				latexBody += '\\path[->] (' + link.nodeA.text + ') edge[' + direction + '] node {' + link.text + '} (' + link.nodeB.text + ');\n';
+				console.log(link)
+				var bendValue;
+				var swap = '';
+				if (Math.abs(link.perpendicularPart) >= 90) {
+					bendValue = 80;
+				} else if (Math.abs(link.perpendicularPart) >= 60) {
+					bendValue = 50;
+				} else {
+					bendValue = 25;
+				}
+				var direction = link.perpendicularPart > 0 ? 'bend right=' : 'bend left=';
+				if (link.perpendicularPart > 0) {
+					swap = ', swap';
+				}
+				latexBody += '\\path[->] (' + link.nodeA.text + ') edge[' + direction + bendValue + ' ' + swap + '] node {' + link.text + '} (' + link.nodeB.text + ');\n';
 			}
 		}
 	
@@ -399,17 +414,35 @@ Link.prototype.getAnchorPoint = function() {
 };
 
 Link.prototype.setAnchorPoint = function(x, y) {
-	var dx = this.nodeB.x - this.nodeA.x;
-	var dy = this.nodeB.y - this.nodeA.y;
-	var scale = Math.sqrt(dx * dx + dy * dy);
-	this.parallelPart = (dx * (x - this.nodeA.x) + dy * (y - this.nodeA.y)) / (scale * scale);
-	this.perpendicularPart = (dx * (y - this.nodeA.y) - dy * (x - this.nodeA.x)) / scale;
-	// snap to a straight line
-	if(this.parallelPart > 0 && this.parallelPart < 1 && Math.abs(this.perpendicularPart) < snapToPadding) {
-		this.lineAngleAdjust = (this.perpendicularPart < 0) * Math.PI;
-		this.perpendicularPart = 0;
-	}
+    var dx = this.nodeB.x - this.nodeA.x;
+    var dy = this.nodeB.y - this.nodeA.y;
+    var scale = Math.sqrt(dx * dx + dy * dy);
+
+    this.parallelPart = 0.5
+    var unsnappedPerpendicular = (dx * (y - this.nodeA.y) - dy * (x - this.nodeA.x)) / scale;
+
+    // Define your snap values for the perpendicular part
+    var snapValues = [0, 30, 60, 100, -30, -60, -100];
+    var maxSnap = Math.max(...snapValues);
+    var minSnap = Math.min(...snapValues);
+
+    // Clamp unsnappedPerpendicular within the range defined by maxSnap and minSnap
+    unsnappedPerpendicular = Math.max(minSnap, Math.min(unsnappedPerpendicular, maxSnap));
+
+    var closestSnap = snapValues.reduce(function(prev, curr) {
+        return (Math.abs(curr - unsnappedPerpendicular) < Math.abs(prev - unsnappedPerpendicular) ? curr : prev);
+    });
+
+    this.perpendicularPart = closestSnap;
+
+    if (this.parallelPart > 0 && this.parallelPart < 1 && Math.abs(this.perpendicularPart) < snapToPadding) {
+        this.lineAngleAdjust = (this.perpendicularPart < 0) * Math.PI;
+        this.perpendicularPart = 0;
+    }
 };
+
+
+
 
 Link.prototype.getEndPointsAndCircle = function() {
 	if(this.perpendicularPart == 0) {
@@ -593,13 +626,20 @@ SelfLink.prototype.setMouseStart = function(x, y) {
 };
 
 SelfLink.prototype.setAnchorPoint = function(x, y) {
-	this.anchorAngle = Math.atan2(y - this.node.y, x - this.node.x) + this.mouseOffsetAngle;
-	// snap to 90 degrees
-	var snap = Math.round(this.anchorAngle / (Math.PI / 2)) * (Math.PI / 2);
-	if(Math.abs(this.anchorAngle - snap) < 0.1) this.anchorAngle = snap;
-	// keep in the range -pi to pi so our containsPoint() function always works
-	if(this.anchorAngle < -Math.PI) this.anchorAngle += 2 * Math.PI;
-	if(this.anchorAngle > Math.PI) this.anchorAngle -= 2 * Math.PI;
+    this.anchorAngle = Math.atan2(y - this.node.y, x - this.node.x) + this.mouseOffsetAngle;
+
+    // Convert the angle to degrees for easier calculation
+    var angleInDegrees = this.anchorAngle * (180 / Math.PI);
+
+    // Snap to 0, 90, 180, 270 degrees
+    var snappedAngle = Math.round(angleInDegrees / 90) * 90;
+
+    // Convert back to radians
+    this.anchorAngle = snappedAngle * (Math.PI / 180);
+
+    // Normalize the angle to be in the range -pi to pi
+    if (this.anchorAngle < -Math.PI) this.anchorAngle += 2 * Math.PI;
+    if (this.anchorAngle > Math.PI) this.anchorAngle -= 2 * Math.PI;
 };
 
 SelfLink.prototype.getEndPointsAndCircle = function() {
