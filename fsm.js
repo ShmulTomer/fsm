@@ -66,31 +66,48 @@ function ExportAsLaTeX() {
 			latexBody += '\\node[state' + stateOptionsStr + '] (' + node.text + ') at (' + 
 						 fixed(node.x * this._scale, 2) + ',' + fixed(-node.y * this._scale, 2) + ') {' + node.text + '};\n';
 		}
- 
+
+
 		// // Loop through links to generate LaTeX code for transitions
 		// for (i = 0; i < links.length; i++) {
 		// 	var link = links[i];
 		// 	console.log(links[i])
-		// 	var edgeOptions = link.isLoop ? '[loop above]' : '';
-		// 	latexBody += '\\path[->] (' + link.nodeA.text + ') edge' + edgeOptions +
-		// 				 ' node {' + link.text + '} (' + link.nodeB.text + ');\n';
+		// 	if (link instanceof SelfLink) {
+		// 		latexBody += '\\path[->] (' + link.node.text + ') edge[loop above] node {' + link.text + '} ();\n';
+		// 	} else {
+		// 		var edgeOptions = '';
+		// 		if (link.perpendicularPart !== 0) {
+		// 			// Determine bending angle based on the perpendicular part
+		// 			var bendAngle = Math.abs(link.perpendicularPart); // Adjust the factor to control the bend
+		// 			// edgeOptions = 'bend ' + (link.perpendicularPart < 0 ? 'left=' : 'right=') + bendAngle + ' ';
+		// 			edgeOptions = 'bend left=' + 10 + ' ';
+		// 		}
+		// 		latexBody += '\\path[->] (' + link.nodeA.text + ') edge[' + edgeOptions + '] node {' + link.text + '} (' + link.nodeB.text + ');\n';
+		// 	}
 		// }
 
-		// Loop through links to generate LaTeX code for transitions
 		for (i = 0; i < links.length; i++) {
 			var link = links[i];
 			if (link instanceof SelfLink) {
+				console.log(links[i])
 				latexBody += '\\path[->] (' + link.node.text + ') edge[loop above] node {' + link.text + '} ();\n';
+			} else if (link.perpendicularPart === 0) {
+				// Straight link
+				latexBody += '\\path[->] (' + link.nodeA.text + ') edge node {' + link.text + '} (' + link.nodeB.text + ');\n';
 			} else {
-				var edgeOptions = '';
-				if (link.perpendicularPart !== 0) {
-					// Determine bending angle based on the perpendicular part
-					var bendAngle = Math.abs(link.perpendicularPart * 10); // Adjust the factor to control the bend
-					edgeOptions = 'bend ' + (link.perpendicularPart < 0 ? 'left=' : 'right=') + bendAngle + ' ';
-				}
-				latexBody += '\\path[->] (' + link.nodeA.text + ') edge[' + edgeOptions + '] node {' + link.text + '} (' + link.nodeB.text + ');\n';
+				// Curved link
+				var anchor = link.getAnchorPoint();
+				var circle = circleFromThreePoints(link.nodeA.x, link.nodeA.y, link.nodeB.x, link.nodeB.y, anchor.x, anchor.y);
+				var startAngle = Math.atan2(link.nodeA.y - circle.y, link.nodeA.x - circle.x);
+				var endAngle = Math.atan2(link.nodeB.y - circle.y, link.nodeB.x - circle.x);
+				var angleDelta = endAngle - startAngle;
+				if (angleDelta <= -Math.PI) angleDelta += 2 * Math.PI;
+				if (angleDelta > Math.PI) angleDelta -= 2 * Math.PI;
+				var direction = (angleDelta > 0) ? "bend left" : "bend right";
+				latexBody += '\\path[->] (' + link.nodeA.text + ') edge[' + direction + '] node {' + link.text + '} (' + link.nodeB.text + ');\n';
 			}
 		}
+	
 	
 	
  
@@ -1136,12 +1153,22 @@ function output(text) {
 }
 
 function saveAsPNG() {
-	var oldSelectedObject = selectedObject;
-	selectedObject = null;
-	drawUsing(canvas.getContext('2d'));
-	selectedObject = oldSelectedObject;
-	var pngData = canvas.toDataURL('image/png');
-	document.location.href = pngData;
+    var oldSelectedObject = selectedObject;
+    selectedObject = null;
+    drawUsing(canvas.getContext('2d'));
+    selectedObject = oldSelectedObject;
+
+    var pngData = canvas.toDataURL('image/png');
+
+    // Create a temporary link to trigger download
+    var downloadLink = document.createElement('a');
+    downloadLink.href = pngData;
+    downloadLink.download = 'canvas.png'; // Name the download file
+
+    // Append link to the body, click it, and then remove it
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
 }
 
 function saveAsSVG() {
